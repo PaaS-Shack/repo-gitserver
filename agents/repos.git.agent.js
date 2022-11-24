@@ -15,6 +15,9 @@ const Context = require("moleculer").Context
 
 const backend = require('git-http-backend');
 
+const GitService = require("../mixins/git.mixin");
+const FSService = require("../mixins/fs.mixin");
+const AgentService = require("../mixins/agent.mixin");
 /**
  * attachments of addons service
  */
@@ -23,7 +26,10 @@ module.exports = {
 	version: 1,
 
 	mixins: [
-		ConfigLoader(['repos.**'])
+		ConfigLoader(['repos.**']),
+        GitService,
+        FSService,
+        AgentService
 	],
 
 	/**
@@ -143,21 +149,20 @@ module.exports = {
 					timeout: 10 * 60 * 1000
 				}
 
-				const isRepo = await ctx.call('v1.node.fs.stat', {
+				const isRepo = await ctx.call('v1.repos.git.agent.fs.stat', {
 					path: cwd
 				}, options).then(() => true).catch(() => false)
 
 				if (!isRepo) {
-					await ctx.call('v1.node.fs.mkdir', {
+					await ctx.call('v1.repos.git.agent.fs.mkdir', {
 						path: cwd,
 						recursive: true
 					}, options);
-					await ctx.call('v1.node.git.init', {
+					await ctx.call('v1.repos.git.agent.git.init', {
 						cwd,
 						bare: true
 					}, options);
 				}
-
 
 				this.logger.info(`Created GIT bare repo ${cwd}`)
 			}
@@ -174,12 +179,12 @@ module.exports = {
 					timeout: 10 * 60 * 1000
 				}
 
-				const isRepo = await ctx.call('v1.node.fs.stat', {
+				const isRepo = await ctx.call('v1.repos.git.agent.fs.stat', {
 					path: cwd
 				}, options).then(() => true).catch(() => false)
 
 				if (isRepo) {
-					await ctx.call('v1.node.fs.unlink', {
+					await ctx.call('v1.repos.git.agent.fs.unlink', {
 						path: cwd,
 						recursive: true
 					}, options);
@@ -207,10 +212,10 @@ module.exports = {
 			//	this.streamClient.createWriteStream(id).write(line)
 		},
 
-
 		pullURL(token, name) {
 			return `http://${token}:@${process.env.ADDRESS || '0.0.0.0'}:7784/${name}.git`
 		},
+
 		async onResponce(user, repo, data, action, sideband) {
 
 			let commit = await this.broker.call('v1.repos.commits.create', {
@@ -225,7 +230,6 @@ module.exports = {
 			}, { meta: { userID: user.id } });
 
 			this.logger.info(`commit pushed ${commit.hash}(${commit.status})`)
-
 
 			const obj = this.settings.sidebands[commit.hash] = {
 				sideband,
@@ -342,17 +346,17 @@ module.exports = {
 				timeout: 10 * 60 * 1000
 			}
 
-			const isRepo = await ctx.call('v1.node.fs.stat', {
+			const isRepo = await ctx.call('v1.repos.git.agent.fs.stat', {
 				path: cwd
 			}, options).then(() => true).catch(() => false)
 
 			this.logger.info(`Repo(${repo.id}) request made. Is repo: ${isRepo}`)
 			if (!isRepo) {
-				await ctx.call('v1.node.fs.mkdir', {
+				await ctx.call('v1.repos.git.agent.fs.mkdir', {
 					path: cwd,
 					recursive: true
 				}, options);
-				await ctx.call('v1.node.git.init', {
+				await ctx.call('v1.repos.git.agent.git.init', {
 					cwd,
 					bare: true
 				}, options);
